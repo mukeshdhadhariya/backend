@@ -1,4 +1,5 @@
 import mongoose,{Schema} from "mongoose";
+import MAGP from "mongoose-aggregate-paginate-v2"
 
 const videoschema=new Schema(
     {
@@ -38,5 +39,7 @@ const videoschema=new Schema(
         timestamps:true
     }
 )
+
+videoschema.plugin(MAGP)
 
 export const Video =mongoose.model("Video",videoschema)

@@ -3,6 +3,7 @@ import {ApiError} from "../utils/ApiError.js"
 import {User} from "../models/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import {ApiResponce} from "../utils/ApiResponce.js"
+import jwt from "jsonwebtoken"
 
 const genrateaccesstokenandrefreshtoken = async (userId) => {
     try {
@@ -111,7 +112,7 @@ const loginUser=AsyncHandler(async (req,res)=>{
         throw new ApiError(404,"Password is incorrect")
     }
 
-    const {accessToken, refreshToken}=genrateaccesstokenandrefreshtoken(user._id)
+    const {accessToken, refreshToken}=await genrateaccesstokenandrefreshtoken(user._id)
 
     const loggedinUser=await User.findById(user._id).select(
         "-password -refreshToken"
@@ -163,4 +164,52 @@ const logoutUser=AsyncHandler(async(req,res)=>{
 
 })
 
-export {registerUser,loginUser,logoutUser}
+const refreshAccessToken=AsyncHandler(async(req,res)=>{
+    const incommingRefreshToken=req.cookies.refreshToken || req.body.refreshToken
+
+    if(!incommingRefreshToken){
+        throw new ApiError(401,"unauthorize request");
+    }
+
+   try {
+     const decodedToken=jwt.verify(
+         incommingRefreshToken,
+         process.env.REFRESH_TOKEN_SECRET
+     )
+ 
+     const user=await User.findById(decodedToken?._id)
+ 
+     if(!user){
+         throw new ApiError(401,"invalid refresh token");
+     }
+ 
+     if(incommingRefreshToken !== user?.refreshToken){
+         throw new ApiError(401,"Refresh token invaild or used")
+     }
+ 
+     const options={
+         httpOnly:true,
+         secure:true
+     }
+ 
+     const { accessToken, newrefreshToken }=await genrateaccesstokenandrefreshtoken(user?._id);
+ 
+     return res.status(200)
+     .cookie("accessToken",accessToken,options)
+     .cookie("newrefreshToken",newrefreshToken,options)
+     .json(
+         new ApiResponce(
+             200,
+             {accessToken,refreshToken:newrefreshToken},
+             "access token refreshed"
+         )
+     )
+   } catch (error) {
+    throw new ApiError(401,error?.message || "some error accure when token refresh")
+   }
+
+
+
+})
+
+export {registerUser,loginUser,logoutUser,refreshAccessToken}

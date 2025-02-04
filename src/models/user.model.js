@@ -41,7 +41,7 @@ const  userschema=new Schema({
     type:String,
     required:[true,"Password is required"]
    },
-   refreshtoken:{
+   refreshToken:{
     type:String
    }
 
@@ -60,31 +60,48 @@ userschema.methods.isPasswordCorrect=async function(password){
     return await bcrypt.compare(password,this.password)
 }
 
-userschema.methods.genrateAccessToken=function(){
-    return jwt.sign(
-        {
-            _id:this._id,
-            email:this.email,
-            username:this.username,
-            fullname:this.fullname
-        },
-        process.env.ACCESS_TOKEN_SECREAT,
-        {
-            expiresIn:process.env.ACCESS_TOKEN_EXPIRY,
+userschema.methods.genrateAccessToken = function () {
+    try {
+        if (!process.env.ACCESS_TOKEN_SECRET || !process.env.ACCESS_TOKEN_EXPIRY) {
+            throw new Error("Environment variables for token generation are missing");
         }
-    )
-}
 
-userschema.methods.refreshAccessToken=function(){
-    return jwt.sign(
-        {
-            _id:this._id,
-        },
-        process.env.REFRESH_TOKEN_SECREAT,
-        {
-            expiresIn:process.env.REFRESH_TOKEN_EXPIRY,
+        return jwt.sign(
+            {
+                _id: this._id,
+                email: this.email,
+                username: this.username,
+                fullname: this.fullname,
+            },
+            process.env.ACCESS_TOKEN_SECRET,
+            {
+                expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+            }
+        );
+    } catch (error) {
+        throw new Error("Failed to generate access token");
+    }
+};
+
+userschema.methods.refreshAccessToken = function () {
+    try {
+        if (!process.env.REFRESH_TOKEN_SECRET || !process.env.REFRESH_TOKEN_EXPIRY) {
+            throw new Error("Environment variables for refresh token generation are missing");
         }
-    )
-}
+
+        return jwt.sign(
+            {
+                _id: this._id,
+            },
+            process.env.REFRESH_TOKEN_SECRET,
+            {
+                expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+            }
+        );
+    } catch (error) {
+        throw new Error("Failed to generate refresh token");
+    }
+};
+
 
 export const User=mongoose.model("User",userschema)

@@ -212,4 +212,202 @@ const refreshAccessToken=AsyncHandler(async(req,res)=>{
 
 })
 
-export {registerUser,loginUser,logoutUser,refreshAccessToken}
+const ChnageCurrentPassword=AsyncHandler(async(req,res)=>{
+    const {oldPassword,newPassword}=req.body
+
+    const user=await User.findById(req.user?._id)
+
+    const isPasswordCorrect=await isPasswordCorrect(oldPassword)
+
+    if(!isPasswordCorrect){
+        throw new ApiError(401,"Password incorrect")
+    }
+
+    user.password=newPassword;
+    await user.save({validateBeforeSave:false})
+
+    return res
+    .status(200)
+    .json(new ApiResponce(200,{},"Password changed successfully"))
+
+
+})
+
+const getCurrentUser=AsyncHandler(async(req,res)=>{
+    return res
+    .status(200)
+    .json(
+        new ApiResponce(200,req.user,"User fetch successfully")
+    )
+})
+
+const upadateAccountDetail=AsyncHandler(async(req,res)=>{
+
+    const {fullname,email}=req.body;
+
+    if(!fullname || !email){
+        throw new ApiError(401,"fullname or email is empty");
+    }
+
+    const user=User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:{
+                fullname,
+                email:email
+            }
+        },
+        {
+            new:true
+        }
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponce(200,user,"user details Upadated successfully")
+    )
+
+})
+
+const upadateUserAvatar=AsyncHandler(async(req,res)=>{
+    const avatarlocalpath=req.file?.path
+
+    if(!avatarlocalpath){
+        throw new ApiError(200,"Local file path does not find")
+    }
+    const avatar=await uploadOnCloudinary(avatarlocalpath)
+
+    if(!avatar?.url){
+        throw new ApiError(200,"error when file upload on cloudinary")
+    }
+
+    const user=await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set:{
+                avatar:avatar.url
+            }
+        },
+        {new:true}
+    ).select("-password")
+
+    return res.status(200).json(
+        new ApiResponce(200,user,"avatar upaded successfully")
+    )
+})
+
+const upadatecoverimage=AsyncHandler(async(req,res)=>{
+    const coverimagelocalpath=req.file?.path
+
+    if(!coverimagelocalpath){
+        throw new ApiError(200,"Local file path does not find")
+    }
+    const coverimage=await uploadOnCloudinary(coverimagelocalpath)
+
+    if(!coverimage?.url){
+        throw new ApiError(200,"error when file upload on cloudinary")
+    }
+
+    const user=await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set:{
+                coverimage:coverimage.url
+            }
+        },
+        {new:true}
+    ).select("-password")
+
+    return res.status(200).json(
+        new ApiResponce(200,user,"coverimage updated successfully")
+    )
+})
+
+const getUserChannelProfile=AsyncHandler(async(req,res)=>{
+
+    const {username}=req.params;
+
+    if(!username?.trim()){
+        throw new ApiError(401,"User is missing");
+    }
+
+    const channel=await User.aggregate([
+        {
+            $match:{
+                username:username?.toLowerCase()
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id", 
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id", 
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        {
+            $addFields:{
+                SubscribersCount:{
+                    $size:"$subscribers"
+                },
+                channelsSubscribedToCount:{
+                    $size:"$subscribedTo"
+                },
+                isSubscribed:{
+                    $cond:{
+                        if:{$in:[req.user?._id,"$subscribers.subscriber"]},
+                        then:true,
+                        else:false
+                    }
+                }
+            }
+        },
+        {
+            $project:{
+                fullname:1,
+                username:1,
+                SubscribersCount:1,
+                channelsSubscribedToCount:1,
+                isSubscribed:1,
+                avatar:1,
+                coverimage:1,
+                email:1
+            }
+        }
+    ])
+
+    console.log(channel);
+
+    if(!channel?.length){
+        throw new ApiError(401,"channel does not exist")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponce(200,channel,"user channel fetched successfully")
+    )
+
+})
+
+export {
+        registerUser,
+        loginUser,
+        logoutUser,
+        refreshAccessToken,
+        ChnageCurrentPassword,
+        getCurrentUser,
+        upadateAccountDetail,
+        upadateUserAvatar,
+        upadatecoverimage,
+        getUserChannelProfile
+}

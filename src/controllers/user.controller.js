@@ -4,6 +4,7 @@ import {User} from "../models/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import {ApiResponce} from "../utils/ApiResponce.js"
 import jwt from "jsonwebtoken"
+import mongoose from "mongoose"
 
 const genrateaccesstokenandrefreshtoken = async (userId) => {
     try {
@@ -399,6 +400,56 @@ const getUserChannelProfile=AsyncHandler(async(req,res)=>{
 
 })
 
+const getUserWatchHistory=AsyncHandler(async(req,res)=>{
+    const user=await User.aggregate(
+        {
+            $match:{
+                _id:new mongoose.Types.ObjectId(req.user._id)
+            },
+        },
+        {
+            $lookup:{
+                form:"videos",
+                localField:"watchHistory",
+                foreignField:"_id",
+                as:"watchHistory",
+                pipline:[
+                    {
+                        $lookup:{
+                            form:"users",
+                            localField:"owner",
+                            foreignField:"_id",
+                            as:"owner",
+                            pipline:[
+                                {
+                                    $project:{
+                                        fullname:1,
+                                        username:1,
+                                        avatar:1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields:{
+                            owner:{
+                                $first:"$owner",
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    )
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponce(200,user[0].watchHistory,"watchHistory find successfully")
+    )
+})
+
 export {
         registerUser,
         loginUser,
@@ -409,5 +460,6 @@ export {
         upadateAccountDetail,
         upadateUserAvatar,
         upadatecoverimage,
-        getUserChannelProfile
+        getUserChannelProfile,
+        getUserWatchHistory
 }

@@ -121,7 +121,7 @@ const loginUser=AsyncHandler(async (req,res)=>{
 
     const options={
         httpOnly:true,
-        secure:true
+        secure:true,
     }// can see cookies on frontend but modified by only backend(server)  without this frontend also can change cookies
 
     return res
